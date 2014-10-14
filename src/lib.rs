@@ -14,6 +14,7 @@ use std::num::{One, Zero, ToStrRadix};
 use std::mem::{uninitialized,size_of};
 use std::{cmp, fmt};
 use std::from_str::FromStr;
+use std::ptr;
 
 #[cfg(test)]
 mod test;
@@ -100,6 +101,8 @@ extern "C" {
     fn __gmpz_invert(rop: mpz_ptr, op1: mpz_srcptr, op2: mpz_srcptr) -> c_int;
     fn __gmpz_import(rop: mpz_ptr, count: size_t, order: c_int, size: size_t,
                      endian: c_int, nails: size_t, op: *const c_void);
+    fn __gmpz_export(rop: *mut c_void, count: *mut size_t, order: c_int, size: size_t,
+                     endian: c_int, nails: size_t, op: mpz_srcptr);
     fn __gmp_randinit_default(state: gmp_randstate_t);
     fn __gmp_randinit_mt(state: gmp_randstate_t);
     fn __gmp_randinit_lc_2exp(state: gmp_randstate_t, a: mpz_srcptr, c: c_ulong, m2exp: mp_bitcnt_t);
@@ -148,6 +151,11 @@ extern "C" {
     fn __gmpf_ceil(rop: mpf_ptr, op: mpf_srcptr);
     fn __gmpf_floor(rop: mpf_ptr, op: mpf_srcptr);
     fn __gmpf_trunc(rop: mpf_ptr, op: mpf_srcptr);
+}
+
+// mpz_sgn() is only available as a macro, so we have to implement it ourselves
+fn mpz_sgn(op: &mpz_struct) -> c_int {
+    op._mp_size.signum()
 }
 
 pub struct Mpz {
@@ -415,7 +423,7 @@ impl Div<Mpz, Mpz> for Mpz {
 impl Rem<Mpz, Mpz> for Mpz {
     fn rem(&self, other: &Mpz) -> Mpz {
         unsafe {
-            if self.is_zero() {
+            if other.is_zero() {
                 fail!("divide by zero")
             }
 
@@ -438,10 +446,54 @@ impl Neg<Mpz> for Mpz {
 
 impl ToPrimitive for Mpz {
     fn to_i64(&self) -> Option<i64> {
-        fail!("not implemented")
+        unsafe {
+            if __gmpz_sizeinbase(&self.mpz, 2) > (std::u64::BITS as u64) {
+                return None
+            }
+
+            let mut u_res = 0u64;
+
+            __gmpz_export((&mut u_res) as *mut u64 as *mut c_void, ptr::null_mut(), -1, std::u64::BYTES as u64, 0, 0, &self.mpz);
+
+            match mpz_sgn(&self.mpz).cmp(&0) {
+                Equal => Some(0),
+                Greater => {
+                    if u_res > (std::i64::MAX as u64) {
+                        None
+                    } else {
+                        Some(u_res as i64)
+                    }
+                }
+                Less => {
+                    let abs_i64_min_as_u64 = ((-(std::i64::MIN + 1)) as u64) + 1;
+
+                    match u_res.cmp(&abs_i64_min_as_u64) {
+                        Equal => Some(std::i64::MIN),
+                        Greater => None,
+                        Less => Some(-(u_res as i64))
+                    }
+                }
+            }
+        }
     }
+
     fn to_u64(&self) -> Option<u64> {
-        fail!("not implemented")
+        unsafe {
+            match mpz_sgn(&self.mpz).cmp(&0) {
+                Equal => return Some(0),
+                Less => return None,
+                Greater => {}
+            }
+            if __gmpz_sizeinbase(&self.mpz, 2) > (std::u64::BITS as u64) {
+                return None
+            }
+
+            let mut res = 0u64;
+
+            __gmpz_export((&mut res) as *mut u64 as *mut c_void, ptr::null_mut(), -1, std::u64::BYTES as u64, 0, 0, &self.mpz);
+
+            Some(res)
+        }
     }
 }
 
@@ -797,6 +849,31 @@ impl Div<Mpq, Mpq> for Mpq {
     }
 }
 
+impl Rem<Mpq, Mpq> for Mpq {
+    fn rem(&self, other: &Mpq) -> Mpq {
+        unsafe {
+            if other.is_zero() {
+                fail!("divide by zero")
+            }
+
+            // TODO: maybe this can be optimized?
+
+            // abs() is needed to mimic rust's remainder operator with regards
+            // to negative numbers.
+            let mut div_res = Mpq::new();
+            __gmpq_div(&mut div_res.mpq, &self.mpq, &other.abs().mpq);
+
+            let mut int_res = Mpz::new();
+            __gmpz_tdiv_r(&mut int_res.mpz, &div_res.mpq._mp_num, &div_res.mpq._mp_den);
+
+            let mut res = Mpq::new();
+            res.set_z(&int_res);
+
+            res
+        }
+    }
+}
+
 impl Neg<Mpq> for Mpq {
     fn neg(&self) -> Mpq {
         unsafe {
@@ -841,6 +918,20 @@ impl Zero for Mpq {
     fn zero() -> Mpq { Mpq::new() }
     fn is_zero(&self) -> bool {
         unsafe { __gmpq_cmp_ui(&self.mpq, 0, 1) == 0 }
+    }
+}
+
+impl fmt::Show for Mpq {
+    /// Renders as `numer/denom`. If denom=1, renders as numer.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let numer = self.get_num();
+        let denom = self.get_den();
+
+        if denom == One::one() {
+            write!(f, "{}", numer)
+        } else {
+            write!(f, "{}/{}", numer, denom)
+        }
     }
 }
 

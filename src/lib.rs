@@ -11,7 +11,7 @@
 extern crate libc;
 
 use libc::{c_char, c_double, c_int, c_long, c_ulong, c_void, size_t};
-use std::num::{One, Zero};
+use std::num::{One, Zero, SignedInt};
 use std::mem::{uninitialized,size_of};
 use std::{cmp, fmt, hash};
 use std::from_str::FromStr;

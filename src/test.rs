@@ -1,7 +1,7 @@
 
 mod mpz {
     use super::super::Mpz;
-    use std::from_str::FromStr;
+    use std::str::FromStr;
     use std::num::{Zero, One};
     use libc::c_ulong;
 

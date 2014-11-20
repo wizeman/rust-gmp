@@ -373,10 +373,10 @@ impl Mpz {
         unsafe { __gmpz_popcount(&self.mpz) as uint }
     }
 
-    pub fn pow(&self, exp: u64) -> Mpz {
+    pub fn pow(&self, exp: uint) -> Mpz {
         unsafe {
             let mut res = Mpz::new();
-            __gmpz_pow_ui(&mut res.mpz, &self.mpz, exp);
+            __gmpz_pow_ui(&mut res.mpz, &self.mpz, exp as c_ulong);
             res
         }
     }

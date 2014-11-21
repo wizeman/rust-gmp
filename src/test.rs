@@ -2,7 +2,6 @@
 mod mpz {
     use super::super::Mpz;
     use std::str::FromStr;
-    use std::num::One;
     use libc::c_ulong;
 
     use std::hash::hash;
@@ -78,7 +77,7 @@ mod mpz {
     #[test]
     #[should_fail]
     fn test_div_zero() {
-        let x: Mpz = One::one();
+        let x: Mpz = Mpz::one();
         let y = Mpz::new();
         x / y;
     }
@@ -86,7 +85,7 @@ mod mpz {
     #[test]
     #[should_fail]
     fn test_rem_zero() {
-        let x: Mpz = One::one();
+        let x: Mpz = Mpz::one();
         let y = Mpz::new();
         x % y;
     }
@@ -344,7 +343,7 @@ mod mpz {
 
     #[test]
     fn test_one() {
-        let onea: Mpz = One::one();
+        let onea: Mpz = Mpz::one();
         let oneb: Mpz = FromPrimitive::from_int(1).unwrap();
         assert!(onea == oneb);
     }
@@ -395,7 +394,7 @@ mod mpz {
     #[test]
     fn test_hash_short() {
         let zero: Mpz = Mpz::zero();
-        let one: Mpz = One::one();
+        let one: Mpz = Mpz::one();
         let two = one + one;
         assert!(hash(&zero) != hash(&one));
         assert_eq!(hash(&one), hash(&(two - one)));
@@ -407,7 +406,7 @@ mod mpz {
                 .unwrap();
         let b = Mpz::from_str_radix("348917329847193287498312749187234192386", 10)
                 .unwrap();
-        let one: Mpz = One::one();
+        let one: Mpz = Mpz::one();
         assert!(hash(&a) != hash(&b));
         assert_eq!(hash(&a), hash(&(b + one)));
         assert_eq!(hash(&(a - a)), hash(&(one - one)));
@@ -432,11 +431,10 @@ mod rand {
 
 mod mpq {
     use super::super::Mpq;
-    use std::num::One;
 
     #[test]
     fn test_one() {
-        let onea: Mpq = One::one();
+        let onea: Mpq = Mpq::one();
         let oneb: Mpq = FromPrimitive::from_int(1).unwrap();
         assert!(onea == oneb);
     }
@@ -444,7 +442,7 @@ mod mpq {
     #[test]
     #[should_fail]
     fn test_div_zero() {
-        let x: Mpq = One::one();
+        let x: Mpq = Mpq::one();
         let y = Mpq::new();
         x / y;
     }
@@ -474,7 +472,7 @@ mod mpf {
     #[test]
     #[should_fail]
     fn test_div_zero() {
-        // FIXME: change the numerator to One::one()
+        // FIXME: change the numerator to Mpf::one()
         let x = Mpf::new(100);
         x / x;
     }

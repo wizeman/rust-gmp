@@ -11,7 +11,7 @@
 extern crate libc;
 
 use libc::{c_char, c_double, c_int, c_long, c_ulong, c_void, size_t};
-use std::num::{One, Zero, SignedInt};
+use std::num::{One, SignedInt};
 use std::mem::{uninitialized,size_of};
 use std::{cmp, fmt, hash};
 use std::str::FromStr;
@@ -402,7 +402,7 @@ impl Mpz {
     }
 
     pub fn root(&self, n: c_ulong) -> Mpz {
-        assert!(*self >= Zero::zero());
+        assert!(*self >= Mpz::zero());
         unsafe {
             let mut res = Mpz::new();
             let _perfect_root
@@ -416,7 +416,7 @@ impl Mpz {
     }
 
     pub fn sqrt(&self) -> Mpz {
-        assert!(*self >= Zero::zero());
+        assert!(*self >= Mpz::zero());
         unsafe {
             let mut res = Mpz::new();
             __gmpz_sqrt(&mut res.mpz, &self.mpz);
@@ -428,6 +428,13 @@ impl Mpz {
         unsafe {
             __gmpz_millerrabin(&self.mpz, reps)
         }
+    }
+
+    // FIXME: This should be implemented as part of trait Int
+    pub fn zero() -> Mpz { Mpz::new() }
+
+    pub fn is_zero(&self) -> bool {
+        unsafe { __gmpz_cmp_ui(&self.mpz, 0) == 0 }
     }
 }
 
@@ -589,13 +596,6 @@ impl One for Mpz {
             __gmpz_init_set_ui(&mut mpz, 1);
             Mpz { mpz: mpz }
         }
-    }
-}
-
-impl Zero for Mpz {
-    fn zero() -> Mpz { Mpz::new() }
-    fn is_zero(&self) -> bool {
-        unsafe { __gmpz_cmp_ui(&self.mpz, 0) == 0 }
     }
 }
 
@@ -822,6 +822,13 @@ impl Mpq {
             res
         }
     }
+
+    // FIXME: This should be implemented as part of trait Int
+    pub fn zero() -> Mpq { Mpq::new() }
+
+    pub fn is_zero(&self) -> bool {
+        unsafe { __gmpq_cmp_ui(&self.mpq, 0, 1) == 0 }
+    }
 }
 
 impl Clone for Mpq {
@@ -938,13 +945,6 @@ impl One for Mpq {
         let mut res = Mpq::new();
         unsafe { __gmpq_set_ui(&mut res.mpq, 1, 1) }
         res
-    }
-}
-
-impl Zero for Mpq {
-    fn zero() -> Mpq { Mpq::new() }
-    fn is_zero(&self) -> bool {
-        unsafe { __gmpq_cmp_ui(&self.mpq, 0, 1) == 0 }
     }
 }
 

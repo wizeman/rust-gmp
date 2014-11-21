@@ -901,6 +901,31 @@ impl Div<Mpq, Mpq> for Mpq {
     }
 }
 
+impl Rem<Mpq, Mpq> for Mpq {
+    fn rem(&self, other: &Mpq) -> Mpq {
+        unsafe {
+            if other.is_zero() {
+                panic!("divide by zero")
+            }
+
+            // TODO: maybe this can be optimized?
+
+            // abs() is needed to mimic rust's remainder operator with regards
+            // to negative numbers.
+            let mut div_res = Mpq::new();
+            __gmpq_div(&mut div_res.mpq, &self.mpq, &other.abs().mpq);
+
+            let mut int_res = Mpz::new();
+            __gmpz_tdiv_r(&mut int_res.mpz, &div_res.mpq._mp_num, &div_res.mpq._mp_den);
+
+            let mut res = Mpq::new();
+            res.set_z(&int_res);
+
+            res
+        }
+    }
+}
+
 impl Neg<Mpq> for Mpq {
     fn neg(&self) -> Mpq {
         unsafe {

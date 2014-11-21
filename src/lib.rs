@@ -15,6 +15,7 @@ use std::num::{One, Zero, SignedInt};
 use std::mem::{uninitialized,size_of};
 use std::{cmp, fmt, hash};
 use std::str::FromStr;
+use std::ptr;
 
 #[cfg(test)]
 mod test;
@@ -111,6 +112,8 @@ extern "C" {
     fn __gmpz_invert(rop: mpz_ptr, op1: mpz_srcptr, op2: mpz_srcptr) -> c_int;
     fn __gmpz_import(rop: mpz_ptr, count: size_t, order: c_int, size: size_t,
                      endian: c_int, nails: size_t, op: *const c_void);
+    fn __gmpz_export(rop: *mut c_void, count: *mut size_t, order: c_int, size: size_t,
+                     endian: c_int, nails: size_t, op: mpz_srcptr);
     fn __gmpz_root(rop: mpz_ptr, op: mpz_srcptr, n: c_ulong) -> c_int;
     fn __gmpz_sqrt(rop: mpz_ptr, op: mpz_srcptr);
     fn __gmpz_millerrabin(n: mpz_srcptr, reps: c_int) -> c_int;
@@ -162,6 +165,11 @@ extern "C" {
     fn __gmpf_ceil(rop: mpf_ptr, op: mpf_srcptr);
     fn __gmpf_floor(rop: mpf_ptr, op: mpf_srcptr);
     fn __gmpf_trunc(rop: mpf_ptr, op: mpf_srcptr);
+}
+
+// mpz_sgn() is only available as a macro, so we have to implement it ourselves
+fn mpz_sgn(op: &mpz_struct) -> c_int {
+    op._mp_size.signum()
 }
 
 pub struct Mpz {
@@ -541,21 +549,52 @@ impl Neg<Mpz> for Mpz {
 impl ToPrimitive for Mpz {
     fn to_i64(&self) -> Option<i64> {
         unsafe {
-            if __gmpz_fits_slong_p(&self.mpz) != 0 {
-                return Some(__gmpz_get_si(&self.mpz) as i64);
-            } else {
-                return None;
+            if __gmpz_sizeinbase(&self.mpz, 2) > (std::u64::BITS as u64) {
+                return None
+            }
+
+            let mut u_res = 0u64;
+
+            __gmpz_export((&mut u_res) as *mut u64 as *mut c_void, ptr::null_mut(), -1, std::u64::BYTES as u64, 0, 0, &self.mpz);
+
+            match mpz_sgn(&self.mpz).cmp(&0) {
+                Equal => Some(0),
+                Greater => {
+                    if u_res > (std::i64::MAX as u64) {
+                        None
+                    } else {
+                        Some(u_res as i64)
+                    }
+                }
+                Less => {
+                    let abs_i64_min_as_u64 = ((-(std::i64::MIN + 1)) as u64) + 1;
+
+                    match u_res.cmp(&abs_i64_min_as_u64) {
+                        Equal => Some(std::i64::MIN),
+                        Greater => None,
+                        Less => Some(-(u_res as i64))
+                    }
+                }
             }
         }
     }
 
     fn to_u64(&self) -> Option<u64> {
         unsafe {
-            if __gmpz_fits_ulong_p(&self.mpz) != 0 {
-                return Some(__gmpz_get_ui(&self.mpz) as u64);
-            } else {
-                return None;
+            match mpz_sgn(&self.mpz).cmp(&0) {
+                Equal => return Some(0),
+                Less => return None,
+                Greater => {}
             }
+            if __gmpz_sizeinbase(&self.mpz, 2) > (std::u64::BITS as u64) {
+                return None
+            }
+
+            let mut res = 0u64;
+
+            __gmpz_export((&mut res) as *mut u64 as *mut c_void, ptr::null_mut(), -1, std::u64::BYTES as u64, 0, 0, &self.mpz);
+
+            Some(res)
         }
     }
 }

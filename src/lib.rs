@@ -11,7 +11,7 @@
 extern crate libc;
 
 use libc::{c_char, c_double, c_int, c_long, c_ulong, c_void, size_t};
-use std::num::{One, SignedInt};
+use std::num::SignedInt;
 use std::mem::{uninitialized,size_of};
 use std::{cmp, fmt, hash};
 use std::str::FromStr;
@@ -444,6 +444,15 @@ impl Mpz {
     pub fn is_zero(&self) -> bool {
         unsafe { __gmpz_cmp_ui(&self.mpz, 0) == 0 }
     }
+
+    // FIXME: This should be implemented as part of trait Int
+    pub fn one() -> Mpz {
+        unsafe {
+            let mut mpz = uninitialized();
+            __gmpz_init_set_ui(&mut mpz, 1);
+            Mpz { mpz: mpz }
+        }
+    }
 }
 
 impl Clone for Mpz {
@@ -624,16 +633,6 @@ impl FromPrimitive for Mpz {
                 __gmpz_neg(&mut res.mpz, &res.mpz)
             }
             Some(res)
-        }
-    }
-}
-
-impl One for Mpz {
-    fn one() -> Mpz {
-        unsafe {
-            let mut mpz = uninitialized();
-            __gmpz_init_set_ui(&mut mpz, 1);
-            Mpz { mpz: mpz }
         }
     }
 }
@@ -868,6 +867,13 @@ impl Mpq {
     pub fn is_zero(&self) -> bool {
         unsafe { __gmpq_cmp_ui(&self.mpq, 0, 1) == 0 }
     }
+
+    // FIXME: This should be implemented as part of trait Int
+    pub fn one() -> Mpq {
+        let mut res = Mpq::new();
+        unsafe { __gmpq_set_ui(&mut res.mpq, 1, 1) }
+        res
+    }
 }
 
 impl Clone for Mpq {
@@ -1004,21 +1010,13 @@ impl FromPrimitive for Mpq {
     }
 }
 
-impl One for Mpq {
-    fn one() -> Mpq {
-        let mut res = Mpq::new();
-        unsafe { __gmpq_set_ui(&mut res.mpq, 1, 1) }
-        res
-    }
-}
-
 impl fmt::Show for Mpq {
     /// Renders as `numer/denom`. If denom=1, renders as numer.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let numer = self.get_num();
         let denom = self.get_den();
 
-        if denom == One::one() {
+        if denom == Mpz::one() {
             write!(f, "{}", numer)
         } else {
             write!(f, "{}/{}", numer, denom)

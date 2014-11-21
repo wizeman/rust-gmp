@@ -489,6 +489,15 @@ mod mpq {
     }
 
     #[test]
+    fn test_rem() {
+        let x: Mpq = FromPrimitive::from_int(20).unwrap();
+        let y: Mpq = FromPrimitive::from_int(3).unwrap();
+        assert_eq!((x % y).to_string(), (20i % 3).to_string());
+        assert_eq!((x % -y).to_string(), (20i % -3).to_string());
+        assert_eq!((-x % y).to_string(), (-20i % 3).to_string());
+    }
+
+    #[test]
     #[should_fail]
     fn test_invert_zero() {
         Mpq::new().invert();

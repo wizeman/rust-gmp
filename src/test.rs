@@ -2,7 +2,7 @@
 mod mpz {
     use super::super::Mpz;
     use std::str::FromStr;
-    use std::num::{Zero, One};
+    use std::num::One;
     use libc::c_ulong;
     use std::{i64, u64};
 
@@ -395,7 +395,7 @@ mod mpz {
 
     #[test]
     fn test_hash_short() {
-        let zero: Mpz = Zero::zero();
+        let zero: Mpz = Mpz::zero();
         let one: Mpz = One::one();
         let two = one + one;
         assert!(hash(&zero) != hash(&one));
